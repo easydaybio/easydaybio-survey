@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>온츄 설문 관리</title>
+<style>
+  :root { --ink:#16211d; --sub:#5b6a64; --line:#d9e2de; --bg:#f4f8f6; --card:#fff; --accent:#12805c; --warn:#b3261e;
+          --bar:#2a78d6; --low:#2a78d6; --midc:#c9c8c2; --high:#eb6834; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+  main { max-width:1040px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:20px; margin:0; } h2 { font-size:16px; margin:0 0 10px; }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .tabs button, .btn { padding:9px 14px; border:1px solid var(--line); border-radius:9px; background:#fff; font:inherit; color:var(--ink); cursor:pointer; }
+  .tabs button[aria-selected=true], .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .btn.small { padding:5px 9px; font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; }
+  .field label { display:block; font-size:13px; color:var(--sub); margin-bottom:3px; }
+  input, select, textarea { width:100%; padding:9px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; color:var(--ink); }
+  .tablewrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { font-size:12px; color:var(--sub); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.wrap { white-space:normal; min-width:220px; }
+  .badge { display:inline-block; font-size:11px; padding:1px 7px; border-radius:99px; border:1px solid var(--line); color:var(--sub); margin-left:6px; }
+  .badge.trend { border-color:#c98500; color:#8a5c00; background:#fff6dd; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+  .tile { border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .tile .k { font-size:12px; color:var(--sub); } .tile .v { font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .tile .s { font-size:12px; color:var(--sub); }
+  .row { display:grid; grid-template-columns:150px 1fr 96px; align-items:center; gap:10px; padding:5px 0; font-size:14px; }
+  .row .val { text-align:right; font-variant-numeric:tabular-nums; color:var(--sub); }
+  .track { height:14px; background:#eef2f0; border-radius:4px; display:flex; gap:2px; overflow:hidden; }
+  .track i { display:block; height:100%; border-radius:0 4px 4px 0; background:var(--bar); }
+  .track.jar { background:none; } .track.jar i { border-radius:2px; }
+  .legend { display:flex; gap:14px; font-size:12px; color:var(--sub); margin:0 0 8px; }
+  .legend b { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  .muted { color:var(--sub); font-size:13px; } .err { color:var(--warn); font-size:14px; margin-top:8px; }
+  .qr { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  .qr img { width:200px; height:200px; border:1px solid var(--line); border-radius:8px; }
+  .qr code { display:block; word-break:break-all; background:#eef2f0; padding:8px; border-radius:6px; margin:6px 0; }
+  #login { max-width:360px; margin:60px auto; }
+  @media (max-width:600px) { .row { grid-template-columns:104px 1fr 84px; } }
+</style>
+</head>
+<body>
+<main>
+  <div id="login" class="card" hidden>
+    <h1 style="margin-bottom:12px">온츄 설문 관리</h1>
+    <div class="field"><label>이메일</label><input id="email" type="email" autocomplete="username"></div>
+    <div class="field" style="margin-top:8px"><label>비밀번호</label><input id="pw" type="password" autocomplete="current-password"></div>
+    <button id="signin" class="btn primary" style="width:100%; margin-top:12px">로그인</button>
+    <div id="loginerr" class="err"></div>
+  </div>
+
+  <div id="appwrap" hidden>
+    <div class="top"><h1>온츄 설문 관리</h1><button id="signout" class="btn small">로그아웃</button></div>
+    <div class="tabs" role="tablist">
+      <button data-tab="events" aria-selected="true">행사와 QR</button>
+      <button data-tab="results" aria-selected="false">결과</button>
+      <button data-tab="log" aria-selected="false">개선 기록</button>
+    </div>
+
+    <section id="tab-events">
+      <div class="card">
+        <h2>새 행사 등록</h2>
+        <div class="grid">
+          <div class="field"><label>행사 이름</label><input id="ev-name" maxlength="100" placeholder="예: 11월 체험단 1차"></div>
+          <div class="field"><label>날짜</label><input id="ev-date" type="date"></div>
+          <div class="field"><label>장소 또는 경로</label><input id="ev-place" maxlength="100"></div>
+          <div class="field"><label>유형</label><select id="ev-type"><option value="tasting">현장 시식 (짧은 설문)</option><option value="product">제품 제공 (긴 설문)</option></select></div>
+          <div class="field"><label>제품 버전</label><input id="ev-version" value="V1" maxlength="20"></div>
+          <div class="field"><label>제조 로트 (선택)</label><input id="ev-lot" maxlength="50"></div>
+        </div>
+        <button id="ev-add" class="btn primary" style="margin-top:12px">등록하고 QR 만들기</button>
+        <div id="ev-err" class="err"></div>
+      </div>
+      <div id="qrcard" class="card" hidden></div>
+      <div class="card"><h2>행사 목록</h2><div class="tablewrap"><table id="ev-table"></table></div></div>
+    </section>
+
+    <section id="tab-results" hidden>
+      <div class="card">
+        <div class="grid">
+          <div class="field"><label>행사</label><select id="f-event"></select></div>
+          <div class="field"><label>유형</label><select id="f-type"><option value="">전체</option><option value="tasting">현장 시식</option><option value="product">제품 제공</option></select></div>
+          <div class="field"><label>제품 버전</label><select id="f-version"></select></div>
+          <div class="field"><label>나눠 보기</label><select id="f-seg">
+            <option value="age_group">연령대</option><option value="gender">성별</option><option value="bloating_freq">식후 불편 빈도</option>
+            <option value="supplement_use">보조제 복용</option><option value="mint_band">민트 선호</option><option value="chewable_exp">츄어블 경험</option><option value="event_id">행사</option>
+          </select></div>
+        </div>
+        <div style="margin-top:10px"><button id="csv" class="btn small">CSV 내려받기</button> <span id="loadnote" class="muted"></span></div>
+      </div>
+      <div id="results"></div>
+    </section>
+
+    <section id="tab-log" hidden>
+      <div class="card">
+        <h2>개선 기록 추가</h2>
+        <div class="grid">
+          <div class="field"><label>날짜</label><input id="lg-date" type="date"></div>
+          <div class="field"><label>제품 버전</label><input id="lg-version" value="V1" maxlength="20"></div>
+        </div>
+        <div class="field" style="margin-top:8px"><label>어떤 반응을 보고</label><textarea id="lg-obs" maxlength="1000" rows="2"></textarea></div>
+        <div class="field" style="margin-top:8px"><label>무엇을 바꿨는지</label><textarea id="lg-chg" maxlength="1000" rows="2"></textarea></div>
+        <button id="lg-add" class="btn primary" style="margin-top:12px">기록</button>
+        <div id="lg-err" class="err"></div>
+      </div>
+      <div class="card"><h2>기록</h2><div class="tablewrap"><table id="lg-table"></table></div></div>
+    </section>
+  </div>
+</main>
+
+<script src="vendor/supabase.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="config.js"></script>
+<script src="questions.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const cfg = window.ONCHU_CONFIG;
+  const MIN_N = 30;
+  const TYPE = { tasting: "현장 시식", product: "제품 제공" };
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_KEY) {
+    $("login").hidden = false; $("loginerr").textContent = "config.js에 Supabase 주소와 키를 넣어 주세요."; return;
+  }
+  const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY);
+  let events = [], responses = [];
+
+  function el(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    for (const k in attrs || {}) {
+      if (k === "class") e.className = attrs[k]; else if (k.startsWith("on")) e[k] = attrs[k]; else e.setAttribute(k, attrs[k]);
+    }
+    kids.forEach((c) => e.append(c));
+    return e;
+  }
+  const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+  const fmt = (v, d) => (v == null ? "–" : v.toFixed(d == null ? 2 : d));
+  const won = (v) => (v == null ? "–" : Math.round(v).toLocaleString("ko-KR") + "원");
+  const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  // ---------- 로그인 ----------
+  async function boot() {
+    const { data } = await db.auth.getSession();
+    if (!data.session) { $("login").hidden = false; $("appwrap").hidden = true; return; }
+    const ok = await db.rpc("is_admin");
+    if (ok.error || !ok.data) {
+      await db.auth.signOut();
+      $("login").hidden = false; $("loginerr").textContent = "운영자로 등록되지 않은 계정입니다."; return;
+    }
+    $("login").hidden = true; $("appwrap").hidden = false;
+    $("ev-date").value = today(); $("lg-date").value = today();
+    await loadAll();
+  }
+  $("signin").onclick = async () => {
+    $("loginerr").textContent = "";
+    const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
+    if (error) { $("loginerr").textContent = "이메일 또는 비밀번호가 맞지 않습니다."; return; }
+    boot();
+  };
+  $("pw").onkeydown = (e) => { if (e.key === "Enter") $("signin").click(); };
+  $("signout").onclick = async () => { await db.auth.signOut(); location.reload(); };
+
+  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
+    document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
+    ["events", "results", "log"].forEach((t) => ($("tab-" + t).hidden = t !== b.dataset.tab));
+  }));
+
+  // ---------- 데이터 ----------
+  async function fetchAll(table, order) {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await db.from(table).select("*").order(order, { ascending: false }).range(from, from + 999);
+      if (error) throw error;
+      out.push(...data);
+      if (data.length < 1000) return out;
+    }
+  }
+  async function loadAll() {
+    try {
+      [events, responses] = await Promise.all([fetchAll("events", "created_at"), fetchAll("responses", "created_at")]);
+    } catch (e) { $("loadnote").textContent = "데이터를 불러오지 못했습니다."; return; }
+    renderEvents(); renderFilters(); renderResults(); loadLog();
+  }
+
+  // ---------- 행사와 QR ----------
+  function surveyUrl(token) { return new URL("index.html?e=" + token, location.href).href; }
+  function qrDataUrl(text) { const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(8, 16); }
+  function showQr(ev) {
+    const url = surveyUrl(ev.token), src = qrDataUrl(url), card = $("qrcard");
+    card.hidden = false; card.innerHTML = "";
+    card.append(el("h2", null, "QR: " + ev.name),
+      el("div", { class: "qr" },
+        el("img", { src, alt: "설문 QR" }),
+        el("div", null,
+          el("div", { class: "muted" }, TYPE[ev.event_type] + " · " + ev.product_version + (ev.lot ? " · 로트 " + ev.lot : "")),
+          el("code", null, url),
+          el("a", { class: "btn small", href: src, download: "onchu-qr-" + ev.token + ".png" }, "QR 이미지 내려받기"), " ",
+          el("button", { class: "btn small", onclick: () => navigator.clipboard.writeText(url) }, "링크 복사"))));
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  function renderEvents() {
+    const counts = {};
+    responses.forEach((r) => (counts[r.event_id] = (counts[r.event_id] || 0) + 1));
+    const t = $("ev-table"); t.innerHTML = "";
+    t.append(el("tr", null, ...["날짜", "행사", "유형", "버전", "로트", "응답", "상태", ""].map((h, i) => el("th", { class: i === 5 ? "num" : "" }, h))));
+    if (!events.length) t.append(el("tr", null, el("td", { colspan: 8, class: "muted" }, "등록된 행사가 없습니다.")));
+    events.forEach((ev) => t.append(el("tr", null,
+      el("td", null, ev.event_date), el("td", null, ev.name + (ev.place ? " (" + ev.place + ")" : "")),
+      el("td", null, TYPE[ev.event_type]), el("td", null, ev.product_version), el("td", null, ev.lot || "–"),
+      el("td", { class: "num" }, String(counts[ev.id] || 0)), el("td", null, ev.is_active ? "받는 중" : "마감"),
+      el("td", null,
+        el("button", { class: "btn small", onclick: () => showQr(ev) }, "QR"), " ",
+        el("button", { class: "btn small", onclick: async () => {
+          const { error } = await db.from("events").update({ is_active: !ev.is_active }).eq("id", ev.id);
+          if (!error) loadAll();
+        } }, ev.is_active ? "마감하기" : "다시 열기")))));
+  }
+  $("ev-add").onclick = async () => {
+    $("ev-err").textContent = "";
+    const name = $("ev-name").value.trim();
+    if (!name) { $("ev-err").textContent = "행사 이름을 적어 주세요."; return; }
+    const row = { name, event_date: $("ev-date").value || today(), place: $("ev-place").value.trim() || null,
+      event_type: $("ev-type").value, product_version: $("ev-version").value.trim() || "V1", lot: $("ev-lot").value.trim() || null };
+    const { data, error } = await db.from("events").insert(row).select().single();
+    if (error) { $("ev-err").textContent = "등록하지 못했습니다: " + error.message; return; }
+    $("ev-name").value = ""; $("ev-place").value = ""; $("ev-lot").value = "";
+    await loadAll(); showQr(data);
+  };
+
+  // ---------- 결과 ----------
+  function renderFilters() {
+    const fe = $("f-event"), fv = $("f-version"), keepE = fe.value, keepV = fv.value;
+    fe.innerHTML = ""; fe.append(el("option", { value: "" }, "전체"));
+    events.forEach((ev) => fe.append(el("option", { value: ev.id }, ev.event_date + " " + ev.name)));
+    fv.innerHTML = ""; fv.append(el("option", { value: "" }, "전체"));
+    [...new Set(responses.map((r) => r.product_version))].sort().forEach((v) => fv.append(el("option", { value: v }, v)));
+    fe.value = keepE; fv.value = keepV;
+  }
+  ["f-event", "f-type", "f-version", "f-seg"].forEach((id) => ($(id).onchange = renderResults));
+  function filtered() {
+    const e = $("f-event").value, t = $("f-type").value, v = $("f-version").value;
+    return responses.filter((r) => (!e || r.event_id === e) && (!t || r.event_type === t) && (!v || r.product_version === v));
+  }
+  const vals = (rows, id) => rows.map((r) => r[id]).filter((x) => x != null);
+  function trend(n) { return n < MIN_N ? el("span", { class: "badge trend", title: MIN_N + "명 미만이라 결론이 아닌 경향으로만 봅니다" }, "경향") : ""; }
+
+  function barRow(label, value, max, text, tip) {
+    const i = el("i"); i.style.width = (value == null ? 0 : Math.max(0, (value / max) * 100)) + "%";
+    return el("div", { class: "row", title: tip || "" }, el("div", null, label), el("div", { class: "track" }, i), el("div", { class: "val" }, text));
+  }
+  function section(title, ...kids) { return el("div", { class: "card" }, el("h2", null, title), ...kids); }
+
+  function renderResults() {
+    const rows = filtered(), box = $("results"); box.innerHTML = "";
+    $("loadnote").textContent = "응답 " + rows.length + "건";
+    if (!rows.length) { box.append(el("div", { class: "card muted" }, "조건에 맞는 응답이 아직 없습니다.")); return; }
+    const n = rows.length;
+    const rec = vals(rows, "q_recommend");
+    const nps = rec.length ? (rec.filter((x) => x >= 9).length - rec.filter((x) => x <= 6).length) / rec.length * 100 : null;
+
+    // 요약
+    const tile = (k, v, s) => el("div", { class: "tile" }, el("div", { class: "k" }, k), el("div", { class: "v" }, v), el("div", { class: "s" }, s || ""));
+    const head = el("h2", null, "요약"); head.append(trend(n));
+    box.append(el("div", { class: "card" }, head, el("div", { class: "tiles" },
+      tile("응답 수", String(n), MIN_N + "명부터 결론으로 봅니다"),
+      tile("전체 맛", fmt(mean(vals(rows, "q_overall"))), "5점 만점"),
+      tile("재구매 의향", fmt(mean(vals(rows, "q_repurchase"))), "5점 만점"),
+      tile("추천 지수", nps == null ? "–" : (nps > 0 ? "+" : "") + nps.toFixed(0), "추천(9~10) 비율 − 비추천(0~6) 비율"),
+      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + SURVEY.PRICE.toLocaleString("ko-KR") + "원"))));
+
+    // 적정 척도
+    const jar = Object.values(SURVEY.items).filter((it) => it.jar);
+    box.append(section("적정 척도 (3점이 가장 좋은 문항)",
+      el("div", { class: "legend" },
+        el("span", null, el("b", { style: "background:var(--low)" }), "부족 (1~2)"),
+        el("span", null, el("b", { style: "background:var(--midc)" }), "적당 (3)"),
+        el("span", null, el("b", { style: "background:var(--high)" }), "과함 (4~5)")),
+      ...jar.map((it) => {
+        const v = vals(rows, it.id), p = (f) => v.filter(f).length / v.length * 100;
+        const lo = p((x) => x <= 2), mid = p((x) => x === 3), hi = p((x) => x >= 4);
+        const tr = el("div", { class: "track jar" });
+        [[lo, "--low"], [mid, "--midc"], [hi, "--high"]].forEach(([w, c]) => { const i = el("i"); i.style.width = w + "%"; i.style.background = "var(" + c + ")"; tr.append(i); });
+        return el("div", { class: "row", title: it.label + ": " + it.lo + " 쪽 " + lo.toFixed(0) + "%, 적당 " + mid.toFixed(0) + "%, " + it.hi + " 쪽 " + hi.toFixed(0) + "%" },
+          el("div", null, it.label), tr, el("div", { class: "val" }, "적당 " + mid.toFixed(0) + "%"));
+      }),
+      el("p", { class: "muted" }, "파란 쪽이 길면 더 강하게(크게, 부드럽게), 주황 쪽이 길면 더 약하게 고칠 후보입니다.")));
+
+    // 점수 평균
+    const scored = ["q_overall", "q_repurchase", "q_easy_chew", "q_refresh", "q_bitter", "q_aftertaste", "expect_score", "q_comfort", "q_continue"];
+    box.append(section("항목별 평균 (5점 만점)", ...scored.map((id) => {
+      const it = SURVEY.items[id], v = vals(rows, id);
+      if (!v.length) return "";
+      const name = { q_overall: "전체 맛", q_repurchase: "재구매 의향", q_easy_chew: "씹기 편함", q_refresh: "입안 상쾌함", q_bitter: "쓴맛 (낮을수록 좋음)",
+        q_aftertaste: "뒷맛 (낮을수록 좋음)", expect_score: "먹기 전 기대", q_comfort: "속 편함 (내부용)", q_continue: "계속 먹을 의향" }[id];
+      return barRow(name, mean(v), 5, fmt(mean(v)) + " · " + v.length + "명", it.label + " (1 = " + it.lo + ", 5 = " + it.hi + ")");
+    })));
+
+    // 좋았던 점 / 아쉬웠던 점
+    const pts = SURVEY.items.good_points.options;
+    const pointBlock = (id, title) => {
+      const present = rows.filter((r) => r[id]);
+      return el("div", null, el("h2", { style: "margin-top:6px" }, title), ...pts.map((o) => {
+        const c = present.filter((r) => r[id].includes(o.value)).length;
+        return barRow(o.label, c, present.length, c + "명 · " + (c / present.length * 100).toFixed(0) + "%");
+      }));
+    };
+    box.append(el("div", { class: "card" }, el("div", { class: "grid", style: "grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px" },
+      pointBlock("good_points", "좋았던 점"), pointBlock("bad_points", "아쉬웠던 점")),
+      el("p", { class: "muted" }, "보기는 두 유형이 같습니다. 현장 시식은 한 알만 먹은 응답이니, 소화 효과와 복용성은 위의 유형 필터로 나눠서 보세요.")));
+
+    // 가격
+    const pf = SURVEY.items.q_price_fit.options, pa = vals(rows, "price_accept");
+    box.append(section("가격",
+      ...pf.map(([v, label]) => { const c = rows.filter((r) => r.q_price_fit === v).length; return barRow(label, c, n, c + "명 · " + (c / n * 100).toFixed(0) + "%"); }),
+      el("p", { class: "muted" }, "수용 가격: 중앙값 " + won(median(pa)) + ", 평균 " + won(mean(pa)) + ". 정가 이상을 적은 사람 " +
+        (pa.filter((x) => x >= SURVEY.PRICE).length / pa.length * 100).toFixed(0) + "%.")));
+
+    // 나눠 보기
+    const seg = $("f-seg").value;
+    const keyOf = (r) => seg === "mint_band" ? (r.mint_pref <= 2 ? "싫어함 (1~2)" : r.mint_pref === 3 ? "보통 (3)" : "좋아함 (4~5)")
+      : seg === "event_id" ? ((events.find((e) => e.id === r.event_id) || {}).name || "삭제된 행사") : SURVEY.labelOf(seg, r[seg]);
+    const groups = {};
+    rows.forEach((r) => (groups[keyOf(r)] = groups[keyOf(r)] || []).push(r));
+    const tb = el("table");
+    tb.append(el("tr", null, ...["집단", "응답 수", "전체 맛", "재구매 의향", "추천(0~10)", "수용 가격 중앙값"].map((h, i) => el("th", { class: i ? "num" : "" }, h))));
+    Object.keys(groups).sort().forEach((k) => {
+      const g = groups[k], name = el("td", null, k); name.append(trend(g.length));
+      tb.append(el("tr", null, name, el("td", { class: "num" }, String(g.length)), el("td", { class: "num" }, fmt(mean(vals(g, "q_overall")))),
+        el("td", { class: "num" }, fmt(mean(vals(g, "q_repurchase")))), el("td", { class: "num" }, fmt(mean(vals(g, "q_recommend")), 1)),
+        el("td", { class: "num" }, won(median(vals(g, "price_accept"))))));
+    });
+    box.append(section("집단별 비교", el("div", { class: "tablewrap" }, tb)));
+
+    // 한마디
+    const cm = rows.filter((r) => r.open_comment || r.good_other || r.bad_other);
+    const ct = el("table");
+    ct.append(el("tr", null, ...["날짜", "응답자", "내용", "인용"].map((h) => el("th", null, h))));
+    cm.forEach((r) => {
+      const parts = [];
+      if (r.open_comment) parts.push(r.open_comment);
+      if (r.good_other) parts.push("[좋았던 점 기타] " + r.good_other);
+      if (r.bad_other) parts.push("[아쉬웠던 점 기타] " + r.bad_other);
+      ct.append(el("tr", null, el("td", null, r.created_at.slice(0, 10)),
+        el("td", null, SURVEY.labelOf("age_group", r.age_group) + " · " + SURVEY.labelOf("gender", r.gender)),
+        el("td", { class: "wrap" }, parts.join(" / ")), el("td", null, r.open_comment ? (r.consent_quote ? "동의" : "동의 안 함") : "–")));
+    });
+    box.append(section("한마디와 기타 의견 (" + cm.length + "건)", cm.length ? el("div", { class: "tablewrap" }, ct) : el("p", { class: "muted" }, "아직 없습니다."),
+      el("p", { class: "muted" }, "인용은 '동의'로 표시된 한마디 원문만 씁니다.")));
+  }
+
+  $("csv").onclick = () => {
+    const rows = filtered(); if (!rows.length) return;
+    const cols = Object.keys(rows[0]);
+    const cell = (v) => { let s = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
+      if (/^[=+\-@]/.test(s)) s = "'" + s;                      // 엑셀 수식 실행 방지
+      return '"' + s.replace(/"/g, '""') + '"'; };
+    const csv = "﻿" + [cols.join(","), ...rows.map((r) => cols.map((c) => cell(r[c])).join(","))].join("\r\n");
+    const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "onchu-responses-" + today() + ".csv" });
+    a.click();
+  };
+
+  // ---------- 개선 기록 ----------
+  async function loadLog() {
+    const { data, error } = await db.from("improvements").select("*").order("logged_on", { ascending: false });
+    const t = $("lg-table"); t.innerHTML = "";
+    t.append(el("tr", null, ...["날짜", "버전", "어떤 반응을 보고", "무엇을 바꿨는지"].map((h) => el("th", null, h))));
+    if (error || !data.length) { t.append(el("tr", null, el("td", { colspan: 4, class: "muted" }, "기록이 없습니다."))); return; }
+    data.forEach((r) => t.append(el("tr", null, el("td", null, r.logged_on), el("td", null, r.product_version),
+      el("td", { class: "wrap" }, r.observation), el("td", { class: "wrap" }, r.change))));
+  }
+  $("lg-add").onclick = async () => {
+    $("lg-err").textContent = "";
+    const observation = $("lg-obs").value.trim(), change = $("lg-chg").value.trim();
+    if (!observation || !change) { $("lg-err").textContent = "두 칸을 모두 적어 주세요."; return; }
+    const { error } = await db.from("improvements").insert({ logged_on: $("lg-date").value || today(), product_version: $("lg-version").value.trim() || "V1", observation, change });
+    if (error) { $("lg-err").textContent = "기록하지 못했습니다: " + error.message; return; }
+    $("lg-obs").value = ""; $("lg-chg").value = ""; loadLog();
+  };
+
+  boot();
+})();
+</script>
+</body>
+</html>

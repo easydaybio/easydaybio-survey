@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>온츄 시식 설문</title>
+<style>
+  :root { --ink:#16211d; --sub:#5b6a64; --line:#d9e2de; --bg:#f4f8f6; --card:#fff; --accent:#12805c; --accent-soft:#e3f3ec; --warn:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:20px 16px 96px; }
+  header { margin-bottom:16px; }
+  header .brand { font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--accent); }
+  h1 { font-size:22px; margin:4px 0 0; }
+  .progress { height:6px; background:var(--line); border-radius:3px; margin:14px 0 4px; overflow:hidden; }
+  .progress i { display:block; height:100%; background:var(--accent); transition:width .25s; }
+  .stepno { font-size:13px; color:var(--sub); }
+  .q { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:12px; }
+  .q.err { border-color:var(--warn); }
+  .q label.title { display:block; font-weight:600; margin-bottom:10px; }
+  .opts { display:flex; flex-wrap:wrap; gap:8px; }
+  .opt { flex:1 1 auto; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); font:inherit; cursor:pointer; text-align:center; }
+  .opt[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .opt small { display:block; font-size:12px; font-weight:400; opacity:.8; }
+  .multi .opt { flex:1 1 45%; }
+  .scale { display:grid; gap:6px; }
+  .scale .opt { padding:10px 0; min-width:0; }
+  .ends { display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-top:6px; }
+  .ends span:nth-child(2) { text-align:center; }
+  input[type=text], input[type=number], textarea { width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font:inherit; color:var(--ink); background:#fff; }
+  textarea { min-height:90px; resize:vertical; }
+  .unit { display:flex; align-items:center; gap:8px; }
+  .unit span { color:var(--sub); white-space:nowrap; }
+  .other { margin-top:8px; }
+  nav { position:fixed; left:0; right:0; bottom:0; background:rgba(244,248,246,.95); border-top:1px solid var(--line); padding:12px 16px; }
+  nav div { max-width:560px; margin:0 auto; display:flex; gap:8px; }
+  nav button { flex:1; min-height:50px; border-radius:12px; border:1px solid var(--line); background:#fff; font:inherit; font-weight:600; color:var(--ink); cursor:pointer; }
+  nav button.primary { flex:2; background:var(--accent); border-color:var(--accent); color:#fff; }
+  nav button:disabled { opacity:.5; }
+  .msg { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px 20px; text-align:center; margin-top:24px; }
+  .msg h2 { margin:0 0 8px; font-size:20px; }
+  .msg p { margin:0; color:var(--sub); }
+  .errtext { color:var(--warn); font-size:14px; margin-top:10px; }
+  .note { font-size:13px; color:var(--sub); margin-top:14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">ONCHU</div>
+    <h1>시식 설문</h1>
+  </header>
+  <div id="app"><div class="msg"><p>불러오는 중입니다…</p></div></div>
+</main>
+<nav id="nav" hidden><div>
+  <button id="prev" type="button">이전</button>
+  <button id="next" type="button" class="primary">다음</button>
+</div></nav>
+
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="questions.js"></script>
+<script>
+(function () {
+  const app = document.getElementById("app");
+  const nav = document.getElementById("nav");
+  const prevBtn = document.getElementById("prev");
+  const nextBtn = document.getElementById("next");
+  const token = new URLSearchParams(location.search).get("e") || "";
+  const doneKey = "onchu_done_" + token;
+  const cfg = window.ONCHU_CONFIG;
+
+  function message(title, body) {
+    nav.hidden = true;
+    app.innerHTML = "";
+    const d = el("div", "msg");
+    d.append(el("h2", null, title), el("p", null, body));
+    app.append(d);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function stored(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_KEY) return message("설정이 필요합니다", "config.js에 Supabase 주소와 키를 넣어 주세요.");
+  if (!token) return message("QR로 들어와 주세요", "설문은 받으신 QR 코드나 링크로만 열립니다.");
+  if (stored(doneKey)) return message("이미 응답하셨습니다", "참여해 주셔서 감사합니다.");
+
+  const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY, { auth: { persistSession: false } });
+  const answers = {};
+  let steps = [];
+  let type = null;
+  let stepIdx = 0;
+
+  db.rpc("get_event", { p_token: token }).then(({ data, error }) => {
+    if (error) return message("잠시 후 다시 시도해 주세요", "설문을 불러오지 못했습니다.");
+    if (!data) return message("찾을 수 없는 설문입니다", "QR 코드나 링크를 다시 확인해 주세요.");
+    if (!data.is_active) return message("마감된 설문입니다", "관심 가져 주셔서 감사합니다.");
+    type = data.event_type;
+    steps = SURVEY.steps
+      .filter((s) => !s.only || s.only === type)
+      .map((s) => Object.assign({}, s, { items: s.items.filter((it) => !it.only || it.only === type) }));
+    render();
+  });
+
+  function visible(it) { return !it.showIf || it.showIf(answers); }
+
+  function render() {
+    const step = steps[stepIdx];
+    nav.hidden = false;
+    app.innerHTML = "";
+    const bar = el("div", "progress");
+    const fill = el("i");
+    fill.style.width = ((stepIdx + 1) / steps.length) * 100 + "%";
+    bar.append(fill);
+    app.append(bar, el("div", "stepno", (stepIdx + 1) + " / " + steps.length + " · " + step.title));
+    step.items.forEach((it) => app.append(renderItem(it)));
+    if (stepIdx === 0) app.append(el("p", "note", "이름과 연락처는 받지 않습니다. 응답은 제품 개선에만 씁니다."));
+    const err = el("div", "errtext"); err.id = "formerr"; app.append(err);
+    prevBtn.hidden = stepIdx === 0;
+    nextBtn.textContent = stepIdx === steps.length - 1 ? "제출하기" : "다음";
+    window.scrollTo(0, 0);
+  }
+
+  function renderItem(it) {
+    const box = el("div", "q");
+    box.id = "q_" + it.id;
+    box.hidden = !visible(it);
+    box.append(el("label", "title", it.label));
+
+    if (it.type === "choice" || it.type === "bool") {
+      const opts = it.type === "bool" ? [[true, "예"], [false, "아니오"]] : it.options;
+      const row = el("div", "opts");
+      opts.forEach(([v, label]) => row.append(button(label, answers[it.id] === v, () => { answers[it.id] = v; refresh(it, box); })));
+      box.append(row);
+    } else if (it.type === "scale") {
+      const row = el("div", "opts scale");
+      const n = it.max - it.min + 1;
+      row.style.gridTemplateColumns = "repeat(" + (n > 6 ? 6 : n) + ", 1fr)";
+      for (let v = it.min; v <= it.max; v++) {
+        row.append(button(String(v), answers[it.id] === v, () => { answers[it.id] = v; refresh(it, box); }));
+      }
+      box.append(row);
+      const ends = el("div", "ends");
+      ends.append(el("span", null, it.min + " = " + it.lo));
+      if (it.mid) ends.append(el("span", null, "3 = " + it.mid));
+      ends.append(el("span", null, it.max + " = " + it.hi));
+      box.append(ends);
+    } else if (it.type === "multi") {
+      const row = el("div", "opts multi");
+      const sel = answers[it.id] || (answers[it.id] = []);
+      it.options.filter((o) => !o.only || o.only === type).forEach((o) => {
+        const b = button(o.label, sel.includes(o.value), () => {
+          let cur = answers[it.id];
+          if (cur.includes(o.value)) cur = cur.filter((x) => x !== o.value);
+          else if (o.value === "none") cur = ["none"];          // '없음'은 단독 선택
+          else cur = cur.filter((x) => x !== "none").concat(o.value);
+          answers[it.id] = cur;
+          refresh(it, box);
+        });
+        if (o.hint) b.append(el("small", null, o.hint));
+        row.append(b);
+      });
+      box.append(row);
+      if (sel.includes("other")) {
+        const inp = el("input", "other");
+        inp.type = "text"; inp.maxLength = 100; inp.placeholder = "어떤 점인지 짧게 적어 주세요 (선택)";
+        inp.value = answers[it.otherId] || "";
+        inp.oninput = () => { answers[it.otherId] = inp.value; };
+        box.append(inp);
+      }
+    } else if (it.type === "number") {
+      const wrap = el("div", "unit");
+      const inp = el("input");
+      inp.type = "number"; inp.inputMode = "numeric"; inp.min = it.min; inp.max = it.max;
+      if (it.step) inp.step = it.step;
+      if (it.placeholder) inp.placeholder = it.placeholder;
+      if (answers[it.id] != null) inp.value = answers[it.id];
+      inp.oninput = () => {
+        answers[it.id] = inp.value === "" ? null : Number(inp.value);
+        box.classList.remove("err");
+      };
+      wrap.append(inp, el("span", null, it.unit));
+      box.append(wrap);
+    } else if (it.type === "text") {
+      const ta = el("textarea");
+      ta.maxLength = it.maxLength; ta.value = answers[it.id] || "";
+      ta.oninput = () => { answers[it.id] = ta.value; toggleDependents(); };
+      box.append(ta);
+    }
+    return box;
+  }
+
+  function button(label, on, handler) {
+    const b = el("button", "opt", label);
+    b.type = "button";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.onclick = handler;
+    return b;
+  }
+  function refresh(it, box) { box.replaceWith(renderItem(it)); toggleDependents(); }
+  function toggleDependents() {
+    steps[stepIdx].items.forEach((it) => {
+      if (it.showIf) document.getElementById("q_" + it.id).hidden = !visible(it);
+    });
+  }
+
+  function invalid(it) {
+    if (!visible(it) || it.optional) return false;
+    const v = answers[it.id];
+    if (it.type === "multi") return !v || v.length === 0;
+    if (it.type === "number") return v == null || !Number.isInteger(v) || v < it.min || v > it.max;
+    return v === undefined || v === null;
+  }
+
+  prevBtn.onclick = () => { stepIdx--; render(); };
+  nextBtn.onclick = async () => {
+    const bad = steps[stepIdx].items.filter(invalid);
+    steps[stepIdx].items.forEach((it) => document.getElementById("q_" + it.id).classList.toggle("err", bad.includes(it)));
+    const err = document.getElementById("formerr");
+    if (bad.length) {
+      err.textContent = "답하지 않은 문항이 " + bad.length + "개 있습니다.";
+      document.getElementById("q_" + bad[0].id).scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    err.textContent = "";
+    if (stepIdx < steps.length - 1) { stepIdx++; return render(); }
+
+    nextBtn.disabled = true; nextBtn.textContent = "보내는 중…";
+    const payload = Object.assign({}, answers);
+    ["good", "bad"].forEach((k) => {
+      if (!payload[k + "_points"].includes("other") || !(payload[k + "_other"] || "").trim()) delete payload[k + "_other"];
+    });
+    const { error } = await db.rpc("submit_response", { p_token: token, p: payload });
+    nextBtn.disabled = false; nextBtn.textContent = "제출하기";
+    if (error) {
+      err.textContent = /event_closed/.test(error.message)
+        ? "설문이 마감되어 제출할 수 없습니다."
+        : "제출하지 못했습니다. 잠시 후 다시 눌러 주세요.";
+      return;
+    }
+    try { localStorage.setItem(doneKey, "1"); } catch (e) {}
+    message("감사합니다", "소중한 의견은 온츄를 더 좋게 만드는 데 쓰겠습니다.");
+  };
+})();
+</script>
+</body>
+</html>
