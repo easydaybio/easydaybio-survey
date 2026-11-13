@@ -5,10 +5,10 @@
 
 | 파일 | 내용 |
 |---|---|
-| `site/index.html` | 응답자용 설문 (QR로 진입, 로그인 없음) |
-| `site/admin.html` | 운영자용 관리 화면 (행사 등록과 QR, 결과, 개선 기록) |
-| `site/questions.js` | 문항 정의. 문항을 고칠 때 이 파일을 고칩니다 |
-| `site/config.js` | Supabase 주소와 공개 키 |
+| `docs/index.html` | 응답자용 설문 (QR로 진입, 로그인 없음) |
+| `docs/admin.html` | 운영자용 관리 화면 (행사 등록과 QR, 결과, 개선 기록) |
+| `docs/questions.js` | 문항 정의. 문항을 고칠 때 이 파일을 고칩니다 |
+| `docs/config.js` | Supabase 주소와 공개 키 |
 | `supabase/schema.sql` | DB 구조와 보안 규칙 |
 
 ## 처음 한 번 설정
@@ -19,7 +19,7 @@
 4. SQL Editor에서 그 이메일을 운영자로 등록합니다.
    `insert into public.admins (email) values ('운영자 이메일');`
 5. Project Settings → API의 Project URL과 publishable 키를 `config.js`에 넣습니다.
-6. Netlify에서 이 저장소를 연결합니다. 게시 폴더는 `netlify.toml`에 `site`로 정해져 있습니다.
+6. GitHub 저장소 Settings → Pages에서 Branch를 `main`, 폴더를 `/docs`로 정합니다. 주소는 `https://easydaybio.github.io/easydaybio-survey/`입니다.
 
 ## 운영
 
