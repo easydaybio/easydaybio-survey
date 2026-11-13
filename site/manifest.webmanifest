@@ -1,0 +1,24 @@
+{
+  "name": "ONCHEW 설문 관리",
+  "short_name": "설문 관리",
+  "start_url": "admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8f6",
+  "theme_color": "#12805c",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
