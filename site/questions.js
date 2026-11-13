@@ -68,7 +68,7 @@
         items: [
           scale("q_repurchase", "다시 사 먹을 의향", "전혀 없음", "아주 있음"),
           { id: "price_accept", label: "1병(40정)에 얼마면 사도 된다고 느끼시나요?", type: "number",
-            min: 0, max: 1000000, unit: "원", step: 100, placeholder: "예: 20000" },
+            min: 0, max: 1000000, unit: "원", step: 100, placeholder: "예: 24900" },
           { id: "q_price_fit", label: "1병(40정) 24,900원은 어떻게 느껴지나요?", type: "choice",
             options: [["expensive", "비싸다"], ["fair", "적당하다"], ["cheap", "저렴하다"]] },
           { id: "q_recommend", label: "주변에 추천할 의향", type: "scale", min: 0, max: 10,
