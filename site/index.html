@@ -10,7 +10,8 @@
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
   main { max-width:560px; margin:0 auto; padding:20px 16px 96px; }
-  header { margin-bottom:16px; }
+  header { margin-bottom:16px; display:flex; align-items:center; gap:12px; }
+  header img { flex:none; }
   header .brand { font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--accent); }
   h1 { font-size:22px; margin:4px 0 0; }
   .progress { height:6px; background:var(--line); border-radius:3px; margin:14px 0 4px; overflow:hidden; }
@@ -48,8 +49,11 @@
 <body>
 <main>
   <header>
-    <div class="brand">ONCHEW</div>
-    <h1>시식 설문</h1>
+    <img src="logo.png" alt="" width="53" height="56">
+    <div>
+      <div class="brand">ONCHEW</div>
+      <h1>시식 설문</h1>
+    </div>
   </header>
   <div id="app"><div class="msg"><p>불러오는 중입니다…</p></div></div>
 </main>
