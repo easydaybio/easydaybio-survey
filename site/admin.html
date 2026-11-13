@@ -49,7 +49,7 @@
   .legend b { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
   .muted { color:var(--sub); font-size:13px; } .err { color:var(--warn); font-size:14px; margin-top:8px; }
   .qr { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
-  .qr img { width:200px; height:200px; border:1px solid var(--line); border-radius:8px; }
+  .qr img { width:200px; height:auto; border:1px solid var(--line); border-radius:8px; }
   .qr code { display:block; word-break:break-all; background:#eef2f0; padding:8px; border-radius:6px; margin:6px 0; }
   #login { max-width:360px; margin:60px auto; }
   @media (max-width:600px) { .row { grid-template-columns:104px 1fr 84px; } }
@@ -220,9 +220,24 @@
 
   // ---------- 행사와 QR ----------
   function surveyUrl(token) { return new URL("index.html?e=" + token, location.href).href; }
-  function qrDataUrl(text) { const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(8, 16); }
+  // QR 아래에 행사 날짜를 함께 그린 이미지를 만든다
+  function qrDataUrl(text, dateText) {
+    const q = qrcode(0, "M"); q.addData(text); q.make();
+    const n = q.getModuleCount(), cell = 10, pad = 4 * cell, side = n * cell + pad * 2, label = dateText ? 64 : 0;
+    const c = document.createElement("canvas"); c.width = side; c.height = side + label;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = "#000";
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
+    if (dateText) {
+      g.font = "bold 34px -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(dateText, c.width / 2, side + label / 2 - 8);
+    }
+    return c.toDataURL("image/png");
+  }
   function showQr(ev) {
-    const url = surveyUrl(ev.token), src = qrDataUrl(url), card = $("qrcard");
+    const url = surveyUrl(ev.token), src = qrDataUrl(url, ev.event_date.replace(/-/g, ".")), card = $("qrcard");
     card.hidden = false; card.innerHTML = "";
     card.append(el("h2", null, "QR: " + ev.name),
       el("div", { class: "qr" },
@@ -230,7 +245,7 @@
         el("div", null,
           el("div", { class: "muted" }, TYPE[ev.event_type] + " · " + ev.product_version + (ev.lot ? " · 로트 " + ev.lot : "")),
           el("code", null, url),
-          el("a", { class: "btn small", href: src, download: "onchu-qr-" + ev.token + ".png" }, "QR 이미지 내려받기"), " ",
+          el("a", { class: "btn small", href: src, download: "onchew-qr-" + ev.event_date + "-" + ev.token + ".png" }, "QR 이미지 내려받기"), " ",
           el("button", { class: "btn small", onclick: () => navigator.clipboard.writeText(url) }, "링크 복사"))));
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
