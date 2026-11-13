@@ -59,7 +59,16 @@
   </div>
 
   <div id="appwrap" hidden>
-    <div class="top"><h1>온츄 설문 관리</h1><button id="signout" class="btn small">로그아웃</button></div>
+    <div class="top"><h1>온츄 설문 관리</h1><div><button id="pwopen" class="btn small">비밀번호 바꾸기</button> <button id="signout" class="btn small">로그아웃</button></div></div>
+    <div id="pwcard" class="card" hidden>
+      <h2>비밀번호 바꾸기</h2>
+      <div class="grid">
+        <div class="field"><label>새 비밀번호 (8자 이상)</label><input id="pw-new" type="password" autocomplete="new-password"></div>
+        <div class="field"><label>한 번 더</label><input id="pw-new2" type="password" autocomplete="new-password"></div>
+      </div>
+      <button id="pw-save" class="btn primary" style="margin-top:12px">바꾸기</button>
+      <div id="pw-msg" class="err"></div>
+    </div>
     <div class="tabs" role="tablist">
       <button data-tab="events" aria-selected="true">행사와 QR</button>
       <button data-tab="results" aria-selected="false">결과</button>
@@ -168,6 +177,17 @@
   };
   $("pw").onkeydown = (e) => { if (e.key === "Enter") $("signin").click(); };
   $("signout").onclick = async () => { await db.auth.signOut(); location.reload(); };
+  $("pwopen").onclick = () => { $("pwcard").hidden = !$("pwcard").hidden; $("pw-msg").textContent = ""; };
+  $("pw-save").onclick = async () => {
+    const a = $("pw-new").value, b = $("pw-new2").value, msg = $("pw-msg");
+    msg.style.color = "";
+    if (a.length < 8) { msg.textContent = "8자 이상으로 정해 주세요."; return; }
+    if (a !== b) { msg.textContent = "두 칸의 비밀번호가 다릅니다."; return; }
+    const { error } = await db.auth.updateUser({ password: a });
+    if (error) { msg.textContent = "바꾸지 못했습니다: " + error.message; return; }
+    $("pw-new").value = ""; $("pw-new2").value = "";
+    msg.style.color = "var(--accent)"; msg.textContent = "비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 씁니다.";
+  };
 
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
