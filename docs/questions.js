@@ -47,12 +47,11 @@
         ],
       },
       {
-        title: "맛과 식감",
+        title: "맛",
         items: [
           scale("q_mint", "민트 향 강도", "아주 약함", "아주 강함", { mid: "적당", jar: true }),
           scale("q_sweet", "단맛", "아주 약함", "아주 강함", { mid: "적당", jar: true }),
           scale("q_aftertaste", "뒷맛(잔맛)", "깔끔함", "아주 남음", { lowIsGood: true }),
-          scale("q_texture", "식감", "딱딱함", "부드러움", { mid: "적당", jar: true }),
           scale("q_overall", "전체적으로 맛이 어땠나요?", "별로", "아주 좋음"),
         ],
       },

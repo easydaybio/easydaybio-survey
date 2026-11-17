@@ -12,3 +12,6 @@ alter table public.responses
   alter column q_refresh drop not null,
   alter column price_accept drop not null;
 alter table public.responses drop constraint tasting_fields;
+
+-- 식감 문항도 뺐습니다.
+alter table public.responses alter column q_texture drop not null;
