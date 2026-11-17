@@ -79,6 +79,7 @@
     <div class="tabs" role="tablist">
       <button data-tab="events" aria-selected="true">행사와 QR</button>
       <button data-tab="results" aria-selected="false">결과</button>
+      <button data-tab="reserve" aria-selected="false">구매 예약</button>
       <button data-tab="log" aria-selected="false">개선 기록</button>
     </div>
 
@@ -92,6 +93,7 @@
           <div class="field"><label>유형</label><select id="ev-type"><option value="tasting">현장 시식 (짧은 설문)</option><option value="product">제품 제공 (긴 설문)</option></select></div>
           <div class="field"><label>제품 버전</label><input id="ev-version" value="V1" maxlength="20"></div>
           <div class="field"><label>제조 로트 (선택)</label><input id="ev-lot" maxlength="50"></div>
+          <div class="field"><label>구매 예약 전화번호</label><select id="ev-reserve"><option value="0">받지 않음</option><option value="1">설문 끝에서 받기</option></select></div>
         </div>
         <button id="ev-add" class="btn primary" style="margin-top:12px">등록하고 QR 만들기</button>
         <div id="ev-err" class="err"></div>
@@ -114,6 +116,17 @@
         <div style="margin-top:10px"><button id="csv" class="btn small">CSV 내려받기</button> <span id="loadnote" class="muted"></span></div>
       </div>
       <div id="results"></div>
+    </section>
+
+    <section id="tab-reserve" hidden>
+      <div class="card">
+        <div class="grid">
+          <div class="field"><label>행사</label><select id="rv-event"></select></div>
+        </div>
+        <div style="margin-top:10px"><button id="rv-csv" class="btn small">CSV 내려받기</button> <span id="rv-note" class="muted"></span></div>
+        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 최대 6개월입니다.</p>
+      </div>
+      <div class="card"><div class="tablewrap"><table id="rv-table"></table></div></div>
     </section>
 
     <section id="tab-log" hidden>
@@ -147,7 +160,7 @@
     $("login").hidden = false; $("loginerr").textContent = "config.js에 Supabase 주소와 키를 넣어 주세요."; return;
   }
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY);
-  let events = [], responses = [];
+  let events = [], responses = [], reservations = [];
 
   function el(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -198,7 +211,7 @@
 
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
-    ["events", "results", "log"].forEach((t) => ($("tab-" + t).hidden = t !== b.dataset.tab));
+    ["events", "results", "reserve", "log"].forEach((t) => ($("tab-" + t).hidden = t !== b.dataset.tab));
   }));
 
   // ---------- 데이터 ----------
@@ -213,9 +226,9 @@
   }
   async function loadAll() {
     try {
-      [events, responses] = await Promise.all([fetchAll("events", "created_at"), fetchAll("responses", "created_at")]);
+      [events, responses, reservations] = await Promise.all([fetchAll("events", "created_at"), fetchAll("responses", "created_at"), fetchAll("reservations", "created_on")]);
     } catch (e) { $("loadnote").textContent = "데이터를 불러오지 못했습니다."; return; }
-    renderEvents(); renderFilters(); renderResults(); loadLog();
+    renderEvents(); renderFilters(); renderResults(); renderReservations(); loadLog();
   }
 
   // ---------- 행사와 QR ----------
@@ -253,12 +266,16 @@
     const counts = {};
     responses.forEach((r) => (counts[r.event_id] = (counts[r.event_id] || 0) + 1));
     const t = $("ev-table"); t.innerHTML = "";
-    t.append(el("tr", null, ...["날짜", "행사", "유형", "버전", "로트", "응답", "상태", ""].map((h, i) => el("th", { class: i === 5 ? "num" : "" }, h))));
-    if (!events.length) t.append(el("tr", null, el("td", { colspan: 8, class: "muted" }, "등록된 행사가 없습니다.")));
+    const rcounts = {};
+    reservations.forEach((r) => (rcounts[r.event_id] = (rcounts[r.event_id] || 0) + 1));
+    t.append(el("tr", null, ...["날짜", "행사", "유형", "버전", "로트", "응답", "예약", "상태", ""].map((h, i) => el("th", { class: i === 5 || i === 6 ? "num" : "" }, h))));
+    if (!events.length) t.append(el("tr", null, el("td", { colspan: 9, class: "muted" }, "등록된 행사가 없습니다.")));
     events.forEach((ev) => t.append(el("tr", null,
       el("td", null, ev.event_date), el("td", null, ev.name + (ev.place ? " (" + ev.place + ")" : "")),
       el("td", null, TYPE[ev.event_type]), el("td", null, ev.product_version), el("td", null, ev.lot || "–"),
-      el("td", { class: "num" }, String(counts[ev.id] || 0)), el("td", null, ev.is_active ? "받는 중" : "마감"),
+      el("td", { class: "num" }, String(counts[ev.id] || 0)),
+      el("td", { class: "num" }, ev.collect_reservation ? String(rcounts[ev.id] || 0) : "–"),
+      el("td", null, ev.is_active ? "받는 중" : "마감"),
       el("td", null,
         el("button", { class: "btn small", onclick: () => showQr(ev) }, "QR"), " ",
         el("button", { class: "btn small", onclick: async () => {
@@ -271,11 +288,49 @@
     const name = $("ev-name").value.trim();
     if (!name) { $("ev-err").textContent = "행사 이름을 적어 주세요."; return; }
     const row = { name, event_date: $("ev-date").value || today(), place: $("ev-place").value.trim() || null,
-      event_type: $("ev-type").value, product_version: $("ev-version").value.trim() || "V1", lot: $("ev-lot").value.trim() || null };
+      event_type: $("ev-type").value, product_version: $("ev-version").value.trim() || "V1", lot: $("ev-lot").value.trim() || null,
+      collect_reservation: $("ev-reserve").value === "1" };
     const { data, error } = await db.from("events").insert(row).select().single();
     if (error) { $("ev-err").textContent = "등록하지 못했습니다: " + error.message; return; }
     $("ev-name").value = ""; $("ev-place").value = ""; $("ev-lot").value = "";
     await loadAll(); showQr(data);
+  };
+
+  // ---------- 구매 예약 ----------
+  const phoneFmt = (p) => p.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3");
+  const eventName = (id) => { const e = events.find((x) => x.id === id); return e ? e.event_date + " " + e.name : "삭제된 행사"; };
+  function reservedRows() { const e = $("rv-event").value; return reservations.filter((r) => !e || r.event_id === e); }
+  function renderReservations() {
+    const sel = $("rv-event"), keep = sel.value;
+    sel.innerHTML = ""; sel.append(el("option", { value: "" }, "전체"));
+    events.filter((e) => e.collect_reservation).forEach((e) => sel.append(el("option", { value: e.id }, e.event_date + " " + e.name)));
+    sel.value = keep; if (sel.value !== keep) sel.value = "";
+    const rows = reservedRows(), t = $("rv-table"); t.innerHTML = "";
+    $("rv-note").textContent = "예약 " + rows.length + "건 · 연락 완료 " + rows.filter((r) => r.contacted).length + "건";
+    t.append(el("tr", null, ...["접수일", "행사", "전화번호", "연락 완료", ""].map((h) => el("th", null, h))));
+    if (!rows.length) { t.append(el("tr", null, el("td", { colspan: 5, class: "muted" }, "접수된 구매 예약이 없습니다."))); return; }
+    rows.forEach((r) => {
+      const chk = el("input", { type: "checkbox", style: "width:20px;height:20px" }); chk.checked = r.contacted;
+      chk.onchange = async () => {
+        const { error } = await db.from("reservations").update({ contacted: chk.checked }).eq("id", r.id);
+        if (error) { chk.checked = !chk.checked; return; }
+        r.contacted = chk.checked; renderReservations();
+      };
+      t.append(el("tr", null, el("td", null, r.created_on), el("td", null, eventName(r.event_id)),
+        el("td", null, el("a", { href: "sms:" + r.phone }, phoneFmt(r.phone))), el("td", null, chk),
+        el("td", null, el("button", { class: "btn small", onclick: async () => {
+          if (!confirm(phoneFmt(r.phone) + " 번호를 지울까요? 되돌릴 수 없습니다.")) return;
+          const { error } = await db.from("reservations").delete().eq("id", r.id);
+          if (!error) { reservations = reservations.filter((x) => x.id !== r.id); renderReservations(); renderEvents(); }
+        } }, "삭제"))));
+    });
+  }
+  $("rv-event").onchange = renderReservations;
+  $("rv-csv").onclick = () => {
+    const rows = reservedRows(); if (!rows.length) return;
+    const csv = "\ufeff" + ["접수일,행사,전화번호,연락 완료", ...rows.map((r) =>
+      [r.created_on, '"' + eventName(r.event_id).replace(/"/g, '""') + '"', '"' + phoneFmt(r.phone) + '"', r.contacted ? "예" : "아니오"].join(","))].join("\r\n");
+    el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "onchew-reservations-" + today() + ".csv" }).click();
   };
 
   // ---------- 결과 ----------
@@ -317,7 +372,14 @@
       tile("전체 맛", fmt(mean(vals(rows, "q_overall"))), "5점 만점"),
       tile("재구매 의향", fmt(mean(vals(rows, "q_repurchase"))), "5점 만점"),
       tile("추천 지수", nps == null ? "–" : (nps > 0 ? "+" : "") + nps.toFixed(0), "추천(9~10) 비율 − 비추천(0~6) 비율"),
-      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + SURVEY.PRICE.toLocaleString("ko-KR") + "원"))));
+      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + SURVEY.PRICE.toLocaleString("ko-KR") + "원"),
+      ...(() => {
+        const ids = new Set(events.filter((e) => e.collect_reservation).map((e) => e.id));
+        const asked = rows.filter((r) => ids.has(r.event_id));
+        if (!asked.length) return [];
+        const c = asked.filter((r) => r.reserved).length;
+        return [tile("구매 예약", c + "명", "예약을 받은 행사 응답 " + asked.length + "명 중 " + (c / asked.length * 100).toFixed(0) + "%")];
+      })())));
 
     // 적정 척도
     const jar = Object.values(SURVEY.items).filter((it) => it.jar);
