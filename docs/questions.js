@@ -20,7 +20,7 @@
   ].map(([value, label, only, hint]) => ({ value, label, only, hint }));
 
   window.SURVEY = {
-    PRICE: 24900,
+    PRICE: 22900,   // 응답자에게 보여 주는 정가. 바꾸면 응답의 price_shown에 함께 기록됩니다.
     steps: [
       {
         title: "먼저 몇 가지만 여쭐게요",
@@ -68,8 +68,8 @@
         items: [
           scale("q_repurchase", "다시 사 먹을 의향", "전혀 없음", "아주 있음"),
           { id: "price_accept", label: "1병(40정)에 얼마면 사도 된다고 느끼시나요?", type: "number",
-            min: 0, max: 1000000, unit: "원", step: 100, placeholder: "예: 24900" },
-          { id: "q_price_fit", label: "1병(40정) 24,900원은 어떻게 느껴지나요?", type: "choice",
+            min: 0, max: 1000000, unit: "원", step: 100, placeholder: "예: 22900" },
+          { id: "q_price_fit", label: "1병(40정) 22,900원은 어떻게 느껴지나요?", type: "choice",
             options: [["expensive", "비싸다"], ["fair", "적당하다"], ["cheap", "저렴하다"]] },
           { id: "q_recommend", label: "주변에 추천할 의향", type: "scale", min: 0, max: 10,
             lo: "전혀 없음", hi: "꼭 추천" },

@@ -124,7 +124,7 @@
           <div class="field"><label>행사</label><select id="rv-event"></select></div>
         </div>
         <div style="margin-top:10px"><button id="rv-csv" class="btn small">CSV 내려받기</button> <span id="rv-note" class="muted"></span></div>
-        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 최대 6개월입니다.</p>
+        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 수집일부터 최대 1개월입니다.</p>
       </div>
       <div class="card"><div class="tablewrap"><table id="rv-table"></table></div></div>
     </section>
@@ -316,7 +316,10 @@
         if (error) { chk.checked = !chk.checked; return; }
         r.contacted = chk.checked; renderReservations();
       };
-      t.append(el("tr", null, el("td", null, r.created_on), el("td", null, eventName(r.event_id)),
+      const due = new Date(r.created_on + "T00:00:00"); due.setMonth(due.getMonth() + 1);
+      const dateCell = el("td", null, r.created_on);
+      if (due < new Date()) dateCell.append(el("span", { class: "badge trend", title: "동의받은 보유 기간(1개월)이 지났습니다. 지워 주세요." }, "보유 기간 지남"));
+      t.append(el("tr", null, dateCell, el("td", null, eventName(r.event_id)),
         el("td", null, el("a", { href: "sms:" + r.phone }, phoneFmt(r.phone))), el("td", null, chk),
         el("td", null, el("button", { class: "btn small", onclick: async () => {
           if (!confirm(phoneFmt(r.phone) + " 번호를 지울까요? 되돌릴 수 없습니다.")) return;
@@ -372,7 +375,7 @@
       tile("전체 맛", fmt(mean(vals(rows, "q_overall"))), "5점 만점"),
       tile("재구매 의향", fmt(mean(vals(rows, "q_repurchase"))), "5점 만점"),
       tile("추천 지수", nps == null ? "–" : (nps > 0 ? "+" : "") + nps.toFixed(0), "추천(9~10) 비율 − 비추천(0~6) 비율"),
-      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + SURVEY.PRICE.toLocaleString("ko-KR") + "원"),
+      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + [...new Set(rows.map((r) => r.price_shown || SURVEY.PRICE))].sort().map((p) => p.toLocaleString("ko-KR") + "원").join(", ")),
       ...(() => {
         const ids = new Set(events.filter((e) => e.collect_reservation).map((e) => e.id));
         const asked = rows.filter((r) => ids.has(r.event_id));
@@ -426,7 +429,7 @@
     box.append(section("가격",
       ...pf.map(([v, label]) => { const c = rows.filter((r) => r.q_price_fit === v).length; return barRow(label, c, n, c + "명 · " + (c / n * 100).toFixed(0) + "%"); }),
       el("p", { class: "muted" }, "수용 가격: 중앙값 " + won(median(pa)) + ", 평균 " + won(mean(pa)) + ". 정가 이상을 적은 사람 " +
-        (pa.filter((x) => x >= SURVEY.PRICE).length / pa.length * 100).toFixed(0) + "%.")));
+        (rows.filter((r) => r.price_accept >= (r.price_shown || SURVEY.PRICE)).length / rows.length * 100).toFixed(0) + "%.")));
 
     // 나눠 보기
     const seg = $("f-seg").value;

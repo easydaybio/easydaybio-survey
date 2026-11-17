@@ -14,7 +14,7 @@
 ## 처음 한 번 설정
 
 1. Supabase에서 새 프로젝트를 만듭니다. 회사 업무 앱(`easydaybio`)과 다른 프로젝트여야 합니다.
-2. SQL Editor에 `supabase/schema.sql`, 이어서 `supabase/002_reservations.sql`을 붙여넣어 실행합니다.
+2. SQL Editor에 `supabase/schema.sql`, `supabase/002_reservations.sql`, `supabase/003_price_shown.sql`을 순서대로 붙여넣어 실행합니다.
 3. Authentication → Users → Add user로 운영자 계정(이메일, 비밀번호)을 만듭니다.
 4. SQL Editor에서 그 이메일을 운영자로 등록합니다.
    `insert into public.admins (email) values ('운영자 이메일');`
@@ -35,5 +35,5 @@
 - 인용은 `consent_quote`가 동의인 한마디 원문만 씁니다.
 - 응답 표에는 이름과 연락처를 두지 않습니다.
 - 구매 예약 전화번호는 행사 등록 때 켠 행사에서만, 동의를 받은 경우에만 받습니다. `reservations` 표에 따로 두고 응답과 연결하지 않습니다.
-- 구매 절차가 끝난 전화번호는 관리 화면의 구매 예약 탭에서 바로 지웁니다. 동의받은 보유 기간은 최대 6개월입니다.
+- 구매 절차가 끝난 전화번호는 관리 화면의 구매 예약 탭에서 바로 지웁니다. 동의받은 보유 기간은 수집일부터 최대 1개월입니다.
 - 새 제품 버전이 나오면 행사 등록 때 제품 버전만 바꿉니다. 문항과 척도는 그대로 두어야 버전끼리 비교됩니다.

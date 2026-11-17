@@ -218,7 +218,7 @@
     const ul = el("ul");
     ["수집 목적: 제품 구매 예약 접수와 출고 전 안내 연락(배송지·수량 확인 문자)",
      "수집 항목: 휴대전화 번호",
-     "보유 기간: 구매 예약 처리가 끝날 때까지(최대 6개월), 이후 바로 파기",
+     "보유 기간: 수집일부터 최대 1개월. 구매 절차가 끝나면 그 전이라도 바로 파기",
      "동의하지 않으셔도 설문 참여에는 불이익이 없습니다. 다만 구매 예약은 접수되지 않습니다.",
      "전화번호는 설문 응답과 따로 보관하며 서로 연결하지 않습니다."].forEach((t) => ul.append(el("li", null, t)));
     const lab = el("label"), chk = el("input");
@@ -282,7 +282,7 @@
     }
 
     nextBtn.disabled = true; nextBtn.textContent = "보내는 중…";
-    const payload = Object.assign({}, answers);
+    const payload = Object.assign({ price_shown: SURVEY.PRICE }, answers);
     if (!collect || !(payload.reserve_phone || "").replace(/\D/g, "")) { delete payload.reserve_phone; delete payload.reserve_consent; }
     ["good", "bad"].forEach((k) => {
       if (!payload[k + "_points"].includes("other") || !(payload[k + "_other"] || "").trim()) delete payload[k + "_other"];
