@@ -124,7 +124,7 @@
           <div class="field"><label>행사</label><select id="rv-event"></select></div>
         </div>
         <div style="margin-top:10px"><button id="rv-csv" class="btn small">CSV 내려받기</button> <span id="rv-note" class="muted"></span></div>
-        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 수집일부터 최대 1개월입니다.</p>
+        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 제품 출고 안내 후 1개월입니다.</p>
       </div>
       <div class="card"><div class="tablewrap"><table id="rv-table"></table></div></div>
     </section>
@@ -316,10 +316,7 @@
         if (error) { chk.checked = !chk.checked; return; }
         r.contacted = chk.checked; renderReservations();
       };
-      const due = new Date(r.created_on + "T00:00:00"); due.setMonth(due.getMonth() + 1);
-      const dateCell = el("td", null, r.created_on);
-      if (due < new Date()) dateCell.append(el("span", { class: "badge trend", title: "동의받은 보유 기간(1개월)이 지났습니다. 지워 주세요." }, "보유 기간 지남"));
-      t.append(el("tr", null, dateCell, el("td", null, eventName(r.event_id)),
+      t.append(el("tr", null, el("td", null, r.created_on), el("td", null, eventName(r.event_id)),
         el("td", null, el("a", { href: "sms:" + r.phone }, phoneFmt(r.phone))), el("td", null, chk),
         el("td", null, el("button", { class: "btn small", onclick: async () => {
           if (!confirm(phoneFmt(r.phone) + " 번호를 지울까요? 되돌릴 수 없습니다.")) return;
