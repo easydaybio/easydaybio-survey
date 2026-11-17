@@ -124,7 +124,7 @@
           <div class="field"><label>행사</label><select id="rv-event"></select></div>
         </div>
         <div style="margin-top:10px"><button id="rv-csv" class="btn small">CSV 내려받기</button> <span id="rv-note" class="muted"></span></div>
-        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 제품 출고 안내 후 1개월입니다.</p>
+        <p class="muted">전화번호는 설문 응답과 연결되지 않습니다. 구매 절차가 끝난 번호는 바로 지워 주세요. 동의받은 보유 기간은 제품 출고 안내 후 1개월입니다. 출고 안내 문자를 보낸 날 "연락 완료"에 체크하면 그날부터 1개월을 세어, 지난 번호에 표시가 붙습니다.</p>
       </div>
       <div class="card"><div class="tablewrap"><table id="rv-table"></table></div></div>
     </section>
@@ -306,18 +306,27 @@
     events.filter((e) => e.collect_reservation).forEach((e) => sel.append(el("option", { value: e.id }, e.event_date + " " + e.name)));
     sel.value = keep; if (sel.value !== keep) sel.value = "";
     const rows = reservedRows(), t = $("rv-table"); t.innerHTML = "";
-    $("rv-note").textContent = "예약 " + rows.length + "건 · 연락 완료 " + rows.filter((r) => r.contacted).length + "건";
+    const overdue = rows.filter((r) => { if (!r.contacted_on) return false; const d = new Date(r.contacted_on + "T00:00:00"); d.setMonth(d.getMonth() + 1); return d < new Date(today() + "T00:00:00"); }).length;
+    $("rv-note").textContent = "예약 " + rows.length + "건 · 연락 완료 " + rows.filter((r) => r.contacted).length + "건" + (overdue ? " · 보유 기간 지남 " + overdue + "건" : "");
     t.append(el("tr", null, ...["접수일", "행사", "전화번호", "연락 완료", ""].map((h) => el("th", null, h))));
     if (!rows.length) { t.append(el("tr", null, el("td", { colspan: 5, class: "muted" }, "접수된 구매 예약이 없습니다."))); return; }
     rows.forEach((r) => {
       const chk = el("input", { type: "checkbox", style: "width:20px;height:20px" }); chk.checked = r.contacted;
       chk.onchange = async () => {
-        const { error } = await db.from("reservations").update({ contacted: chk.checked }).eq("id", r.id);
+        const { data, error } = await db.from("reservations").update({ contacted: chk.checked }).eq("id", r.id).select().single();
         if (error) { chk.checked = !chk.checked; return; }
-        r.contacted = chk.checked; renderReservations();
+        r.contacted = data.contacted; r.contacted_on = data.contacted_on; renderReservations();
       };
+      // 보유 기간: 연락 완료(출고 안내)에 체크한 날부터 1개월
+      const doneCell = el("td", null, chk);
+      if (r.contacted_on) {
+        const due = new Date(r.contacted_on + "T00:00:00"); due.setMonth(due.getMonth() + 1);
+        const dueText = due.getFullYear() + "-" + String(due.getMonth() + 1).padStart(2, "0") + "-" + String(due.getDate()).padStart(2, "0");
+        doneCell.append(el("span", { class: "muted", style: "margin-left:8px" }, r.contacted_on + " 안내 · " + dueText + "까지 삭제"));
+        if (dueText < today()) doneCell.append(el("span", { class: "badge trend", title: "출고 안내 후 1개월이 지났습니다. 지워 주세요." }, "보유 기간 지남"));
+      }
       t.append(el("tr", null, el("td", null, r.created_on), el("td", null, eventName(r.event_id)),
-        el("td", null, el("a", { href: "sms:" + r.phone }, phoneFmt(r.phone))), el("td", null, chk),
+        el("td", null, el("a", { href: "sms:" + r.phone }, phoneFmt(r.phone))), doneCell,
         el("td", null, el("button", { class: "btn small", onclick: async () => {
           if (!confirm(phoneFmt(r.phone) + " 번호를 지울까요? 되돌릴 수 없습니다.")) return;
           const { error } = await db.from("reservations").delete().eq("id", r.id);
@@ -328,8 +337,8 @@
   $("rv-event").onchange = renderReservations;
   $("rv-csv").onclick = () => {
     const rows = reservedRows(); if (!rows.length) return;
-    const csv = "\ufeff" + ["접수일,행사,전화번호,연락 완료", ...rows.map((r) =>
-      [r.created_on, '"' + eventName(r.event_id).replace(/"/g, '""') + '"', '"' + phoneFmt(r.phone) + '"', r.contacted ? "예" : "아니오"].join(","))].join("\r\n");
+    const csv = "\ufeff" + ["접수일,행사,전화번호,연락 완료,연락 완료일", ...rows.map((r) =>
+      [r.created_on, '"' + eventName(r.event_id).replace(/"/g, '""') + '"', '"' + phoneFmt(r.phone) + '"', r.contacted ? "예" : "아니오", r.contacted_on || ""].join(","))].join("\r\n");
     el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "onchew-reservations-" + today() + ".csv" }).click();
   };
 

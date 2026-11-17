@@ -14,7 +14,7 @@
 ## 처음 한 번 설정
 
 1. Supabase에서 새 프로젝트를 만듭니다. 회사 업무 앱(`easydaybio`)과 다른 프로젝트여야 합니다.
-2. SQL Editor에 `supabase/schema.sql`, `002_reservations.sql`, `003_price_shown.sql`, `004_shorter_survey.sql`을 순서대로 붙여넣어 실행합니다.
+2. SQL Editor에 `supabase/schema.sql`, `002_reservations.sql`, `003_price_shown.sql`, `004_shorter_survey.sql`, `005_contacted_on.sql`을 순서대로 붙여넣어 실행합니다.
 3. Authentication → Users → Add user로 운영자 계정(이메일, 비밀번호)을 만듭니다.
 4. SQL Editor에서 그 이메일을 운영자로 등록합니다.
    `insert into public.admins (email) values ('운영자 이메일');`
