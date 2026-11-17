@@ -31,10 +31,7 @@
             options: [["female", "여성"], ["male", "남성"], ["na", "답하지 않음"]] },
           { id: "bloating_freq", label: "식후에 불편을 느끼는 빈도는 어느 정도인가요?", type: "choice",
             options: [["rare", "거의 없음"], ["sometimes", "가끔"], ["often", "자주"]] },
-          { id: "supplement_use", label: "지금 소화 관련 보조제를 드시나요?", type: "bool" },
           scale("mint_pref", "평소 민트 맛을 좋아하시나요?", "싫어함", "아주 좋아함"),
-          { id: "chewable_exp", label: "씹어 먹는 정제를 드셔 보신 적이 있나요?", type: "bool" },
-          scale("expect_score", "먹기 전에 기대했던 정도", "기대 없음", "기대 큼"),
         ],
       },
       {
@@ -54,12 +51,8 @@
         items: [
           scale("q_mint", "민트 향 강도", "아주 약함", "아주 강함", { mid: "적당", jar: true }),
           scale("q_sweet", "단맛", "아주 약함", "아주 강함", { mid: "적당", jar: true }),
-          scale("q_bitter", "쓴맛", "없음", "아주 강함", { lowIsGood: true }),
           scale("q_aftertaste", "뒷맛(잔맛)", "깔끔함", "아주 남음", { lowIsGood: true }),
           scale("q_texture", "식감", "딱딱함", "부드러움", { mid: "적당", jar: true }),
-          scale("q_size", "크기", "아주 작음", "아주 큼", { mid: "적당", jar: true }),
-          scale("q_easy_chew", "물 없이 씹어 먹기 편했나요?", "아주 불편", "아주 편함"),
-          scale("q_refresh", "먹고 난 뒤 입안 느낌", "불편함", "상쾌함"),
           scale("q_overall", "전체적으로 맛이 어땠나요?", "별로", "아주 좋음"),
         ],
       },
@@ -67,14 +60,10 @@
         title: "구매 의향과 가격",
         items: [
           scale("q_repurchase", "다시 사 먹을 의향", "전혀 없음", "아주 있음"),
-          { id: "price_accept", label: "1병(40정)에 얼마면 사도 된다고 느끼시나요?", type: "number",
-            min: 0, max: 1000000, unit: "원", step: 100, placeholder: "예: 22900" },
           { id: "q_price_fit", label: "1병(40정) 22,900원은 어떻게 느껴지나요?", type: "choice",
             options: [["expensive", "비싸다"], ["fair", "적당하다"], ["cheap", "저렴하다"]] },
           { id: "q_recommend", label: "주변에 추천할 의향", type: "scale", min: 0, max: 10,
             lo: "전혀 없음", hi: "꼭 추천" },
-          { id: "use_timing", label: "식후에 먹는다면 언제 먹을 것 같나요?", type: "choice",
-            options: TIMING, only: "tasting" },
         ],
       },
       {

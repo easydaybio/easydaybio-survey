@@ -110,7 +110,7 @@
           <div class="field"><label>제품 버전</label><select id="f-version"></select></div>
           <div class="field"><label>나눠 보기</label><select id="f-seg">
             <option value="age_group">연령대</option><option value="gender">성별</option><option value="bloating_freq">식후 불편 빈도</option>
-            <option value="supplement_use">보조제 복용</option><option value="mint_band">민트 선호</option><option value="chewable_exp">츄어블 경험</option><option value="event_id">행사</option>
+            <option value="mint_band">민트 선호</option><option value="event_id">행사</option>
           </select></div>
         </div>
         <div style="margin-top:10px"><button id="csv" class="btn small">CSV 내려받기</button> <span id="loadnote" class="muted"></span></div>
@@ -375,7 +375,10 @@
       tile("전체 맛", fmt(mean(vals(rows, "q_overall"))), "5점 만점"),
       tile("재구매 의향", fmt(mean(vals(rows, "q_repurchase"))), "5점 만점"),
       tile("추천 지수", nps == null ? "–" : (nps > 0 ? "+" : "") + nps.toFixed(0), "추천(9~10) 비율 − 비추천(0~6) 비율"),
-      tile("수용 가격 중앙값", won(median(vals(rows, "price_accept"))), "정가 " + [...new Set(rows.map((r) => r.price_shown || SURVEY.PRICE))].sort().map((p) => p.toLocaleString("ko-KR") + "원").join(", ")),
+      (() => {
+        const fair = rows.filter((r) => r.q_price_fit !== "expensive").length;
+        return tile("가격 수용", (fair / n * 100).toFixed(0) + "%", "정가 " + [...new Set(rows.map((r) => r.price_shown || SURVEY.PRICE))].sort().map((p) => p.toLocaleString("ko-KR") + "원").join(", ") + "이 적당하거나 저렴하다는 비율");
+      })(),
       ...(() => {
         const ids = new Set(events.filter((e) => e.collect_reservation).map((e) => e.id));
         const asked = rows.filter((r) => ids.has(r.event_id));
@@ -402,7 +405,7 @@
       el("p", { class: "muted" }, "파란 쪽이 길면 더 강하게(크게, 부드럽게), 주황 쪽이 길면 더 약하게 고칠 후보입니다.")));
 
     // 점수 평균
-    const scored = ["q_overall", "q_repurchase", "q_easy_chew", "q_refresh", "q_bitter", "q_aftertaste", "expect_score", "q_comfort", "q_continue"];
+    const scored = ["q_overall", "q_repurchase", "q_aftertaste", "q_comfort", "q_continue"];
     box.append(section("항목별 평균 (5점 만점)", ...scored.map((id) => {
       const it = SURVEY.items[id], v = vals(rows, id);
       if (!v.length) return "";
@@ -425,11 +428,9 @@
       el("p", { class: "muted" }, "보기는 두 유형이 같습니다. 현장 시식은 한 알만 먹은 응답이니, 소화 효과와 복용성은 위의 유형 필터로 나눠서 보세요.")));
 
     // 가격
-    const pf = SURVEY.items.q_price_fit.options, pa = vals(rows, "price_accept");
+    const pf = SURVEY.items.q_price_fit.options;
     box.append(section("가격",
-      ...pf.map(([v, label]) => { const c = rows.filter((r) => r.q_price_fit === v).length; return barRow(label, c, n, c + "명 · " + (c / n * 100).toFixed(0) + "%"); }),
-      el("p", { class: "muted" }, "수용 가격: 중앙값 " + won(median(pa)) + ", 평균 " + won(mean(pa)) + ". 정가 이상을 적은 사람 " +
-        (rows.filter((r) => r.price_accept >= (r.price_shown || SURVEY.PRICE)).length / rows.length * 100).toFixed(0) + "%.")));
+      ...pf.map(([v, label]) => { const c = rows.filter((r) => r.q_price_fit === v).length; return barRow(label, c, n, c + "명 · " + (c / n * 100).toFixed(0) + "%"); })));
 
     // 나눠 보기
     const seg = $("f-seg").value;
@@ -438,12 +439,12 @@
     const groups = {};
     rows.forEach((r) => (groups[keyOf(r)] = groups[keyOf(r)] || []).push(r));
     const tb = el("table");
-    tb.append(el("tr", null, ...["집단", "응답 수", "전체 맛", "재구매 의향", "추천(0~10)", "수용 가격 중앙값"].map((h, i) => el("th", { class: i ? "num" : "" }, h))));
+    tb.append(el("tr", null, ...["집단", "응답 수", "전체 맛", "재구매 의향", "추천(0~10)", "가격 수용"].map((h, i) => el("th", { class: i ? "num" : "" }, h))));
     Object.keys(groups).sort().forEach((k) => {
       const g = groups[k], name = el("td", null, k); name.append(trend(g.length));
       tb.append(el("tr", null, name, el("td", { class: "num" }, String(g.length)), el("td", { class: "num" }, fmt(mean(vals(g, "q_overall")))),
         el("td", { class: "num" }, fmt(mean(vals(g, "q_repurchase")))), el("td", { class: "num" }, fmt(mean(vals(g, "q_recommend")), 1)),
-        el("td", { class: "num" }, won(median(vals(g, "price_accept"))))));
+        el("td", { class: "num" }, (g.filter((r) => r.q_price_fit !== "expensive").length / g.length * 100).toFixed(0) + "%")));
     });
     box.append(section("집단별 비교", el("div", { class: "tablewrap" }, tb)));
 
